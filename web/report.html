@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="index, follow">
+  <title>Project report · Waste Image Classification</title>
+  <link rel="icon" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,680&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html">Waste Image Classification</a>
+    <nav>
+      <a href="index.html">Overview</a>
+      <a href="index.html#demo">Demo</a>
+      <a href="index.html#files">Files</a>
+      <a href="downloads/presentation.pptx">Presentation</a>
+      <a href="downloads/model.pth">Weights</a>
+    </nav>
+  </header>
+  <main class="wrap article">
+    <h1>Waste Image Classification using Transfer Learning</h1>
+<p><strong>Student:</strong> Student Name</p>
+<p><strong>Roll number:</strong> Roll Number</p>
+<p><strong>Course:</strong> Deep Learning</p>
+<h2>Problem statement</h2>
+<p>Household and campus waste is easier to recycle when paper, plastic, glass, metal, and cardboard are separated before disposal. Doing that by hand does not scale, and a photograph is often the only signal available at a bin or a conveyor.</p>
+<p>This project builds a six-class image classifier for that decision. The classes are cardboard, glass, metal, paper, plastic, and trash. The trained network is saved as a PyTorch checkpoint and as an ONNX file so the same weights can be downloaded for evaluation and run in a browser demo.</p>
+<p>The system is an educational demonstration. It is not a controller for hazardous-waste handling, and it was not trained on medical, chemical, or industrial-safety categories.</p>
+<h2>Objectives</h2>
+<ul><li>Train a convolutional classifier on a public waste-image dataset.</li><li>Keep a held-out test set out of model selection and report accuracy, per-class F1, and a confusion matrix.</li><li>Publish the architecture, checkpoint, and a one-command prediction script.</li><li>Deploy a web page that shows the dataset, the code layout, live predictions, this report, and the presentation.</li></ul>
+<h2>Dataset</h2>
+<p>The images come from TrashNet, collected by Gary Thung and Mindy Yang for Stanford CS 229 and published at <a href="https://github.com/garythung/trashnet">github.com/garythung/trashnet</a>. Each photo shows one object on a plain posterboard under sunlight or room light. The phones used for the original collection were an iPhone 7 Plus, an iPhone 5S, and an iPhone SE. This project uses the resized JPEG release (<code>dataset-resized.zip</code>), whose images are 512 by 384 pixels.</p>
+<p>The release contains <strong>2527</strong> images: cardboard 403, glass 501, metal 410, paper 594, plastic 482, trash 137. Trash is the smallest class, with 137 images, so a classifier that ignores it can still post a high overall accuracy. Training therefore uses inverse-frequency class weights, and the report includes per-class scores rather than accuracy alone.</p>
+<p>The split is stratified with seed 42: <strong>1768</strong> train, <strong>379</strong> validation, and <strong>380</strong> test, about 70% / 15% / 15%. Early stopping watches validation accuracy. The test set is used once, after the checkpoint is chosen.</p>
+<p>The full image archive is not committed. <code>download_dataset.py</code> fetches it, and <code>samples/</code> keeps one correctly classified test image per class for the website and the slides.</p>
+<figure class="figure"><img src="samples/cardboard.jpg" alt="cardboard"><figcaption>cardboard</figcaption></figure>
+<figure class="figure"><img src="samples/glass.jpg" alt="glass"><figcaption>glass</figcaption></figure>
+<figure class="figure"><img src="samples/metal.jpg" alt="metal"><figcaption>metal</figcaption></figure>
+<figure class="figure"><img src="samples/paper.jpg" alt="paper"><figcaption>paper</figcaption></figure>
+<figure class="figure"><img src="samples/plastic.jpg" alt="plastic"><figcaption>plastic</figcaption></figure>
+<figure class="figure"><img src="samples/trash.jpg" alt="trash"><figcaption>trash</figcaption></figure>
+<h2>Architecture</h2>
+<p>The network is <code>torchvision.models.mobilenet_v2</code>, initialized from ImageNet-1K weights (<code>IMAGENET1K_V1</code>). MobileNetV2 is a stack of inverted residual blocks. A block expands the channels with a 1×1 convolution, filters them with a depthwise 3×3 convolution, and projects them back with a linear 1×1 convolution. Stride-1 blocks add a residual connection when the depth does not change. That design keeps the model small enough to store in Git and to run in the browser.</p>
+<p>The ImageNet classifier is replaced by dropout (probability 0.2, the torchvision default) and a linear layer from 1,280 features to 6 classes. The full network has <strong>2,231,558</strong> parameters. Inputs are RGB images. Evaluation resizes the shorter side to 256, takes a center crop of 224, and normalizes with the ImageNet mean (0.485, 0.456, 0.406) and standard deviation (0.229, 0.224, 0.225). The exported model returns logits. Probabilities are a softmax over those six logits.</p>
+<p><code>model.py</code> defines <code>build_model()</code>. Loading <code>weights/model.pth</code> into that module reproduces the trained network. The checkpoint dictionary stores <code>state_dict</code>, <code>classes</code>, <code>input_size</code>, <code>mean</code>, <code>std</code>, and <code>arch</code>.</p>
+<h2>Training</h2>
+<p>Training ran on <strong>NVIDIA GeForce RTX 5070</strong> with batch size 32. The loss is cross-entropy with inverse-frequency weights computed on the training split only: cardboard 1.045, glass 0.842, metal 1.027, paper 0.708, plastic 0.874, trash 3.069. The optimizer is Adam with weight decay 0.0001. Each phase also uses ReduceLROnPlateau on validation accuracy, with factor 0.5 and patience 2.</p>
+<p>Training images are augmented with a random resized crop (scale 0.7 to 1.0), horizontal flip, rotation up to 15 degrees, and color jitter of 0.2 brightness, 0.2 contrast, 0.2 saturation, and 0.05 hue. Validation and test images use the deterministic resize-and-center-crop pipeline.</p>
+<p>Phase one freezes every feature block and trains the new classifier for up to 8 epochs at learning rate 1e-3, with early stopping patience 3. It ran for <strong>6</strong> epochs. The best head checkpoint is reloaded before fine-tuning.</p>
+<p>Phase two unfreezes MobileNetV2 feature blocks from index 14 onward (the later inverted residuals and the final convolution) and trains them at learning rate 1e-4 while the classifier stays at 1e-3. The cap is 20 epochs and the patience is 5. It ran for <strong>11</strong> epochs. The saved weights are the epoch with the highest validation accuracy, <strong>88.39%</strong>, across both phases. In total, <strong>17</strong> epochs were executed.</p>
+<figure class="figure"><img src="images/training_curves.png" alt="Training curves"><figcaption>Training curves</figcaption></figure>
+<h2>Results</h2>
+<p>On the held-out test set the model reaches <strong>88.68%</strong> accuracy, <strong>88.83%</strong> macro F1, and <strong>88.75%</strong> weighted F1. Macro F1 treats the six classes equally, so the small trash class cannot hide inside the overall accuracy.</p>
+<table><thead><tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1</th><th>Support</th></tr></thead><tbody><tr><td>cardboard</td><td>96.49%</td><td>91.67%</td><td>94.02%</td><td>60</td></tr><tr><td>glass</td><td>93.85%</td><td>80.26%</td><td>86.52%</td><td>76</td></tr><tr><td>metal</td><td>80.82%</td><td>95.16%</td><td>87.41%</td><td>62</td></tr><tr><td>paper</td><td>92.94%</td><td>88.76%</td><td>90.80%</td><td>89</td></tr><tr><td>plastic</td><td>79.76%</td><td>91.78%</td><td>85.35%</td><td>73</td></tr><tr><td>trash</td><td>100.00%</td><td>80.00%</td><td>88.89%</td><td>20</td></tr></tbody></table>
+<figure class="figure"><img src="images/confusion_matrix.png" alt="Test confusion matrix"><figcaption>Test confusion matrix</figcaption></figure>
+<p>The largest confusions were 12 glass images predicted as plastic; 6 paper images predicted as metal; 3 cardboard images predicted as paper.</p>
+<p>The original TrashNet course project reported roughly 75% test accuracy with a smaller convolutional network trained from scratch, on the authors' own split. That figure is context, not a paired comparison: this project uses ImageNet initialization and a different stratified split.</p>
+<h2>Web deployment and repository</h2>
+<p>The static site in <code>web/</code> states the problem, the dataset, the code layout, and these results. Uploading a photo, or clicking a sample, runs <code>model.onnx</code> with ONNX Runtime Web. The page also links to this report, the slide deck, and the weight files.</p>
+<p>Canonical files for an automated check:</p>
+<ul><li><code>weights/model.pth</code> — PyTorch checkpoint</li><li><code>weights/model.onnx</code> — browser copy of the same network</li><li><code>weights/config.json</code> — class order, input size, and normalization</li><li><code>weights/class_names.json</code> — class order alone</li><li><code>model_manifest.json</code> — paths and the prediction command</li><li><code>model.py</code> — <code>build_model()</code></li><li><code>predict.py</code> — prints JSON probabilities for one image</li><li><code>outputs/metrics.json</code> — the numbers in this report</li></ul>
+<p>Command-line prediction:</p>
+<pre><code>python predict.py --image samples/paper.jpg</code></pre>
+<p>Loading the checkpoint in Python:</p>
+<pre><code>import torch
+from model import build_model
+
+checkpoint = torch.load(&quot;weights/model.pth&quot;, map_location=&quot;cpu&quot;, weights_only=False)
+model = build_model(num_classes=len(checkpoint[&quot;classes&quot;]), pretrained=False)
+model.load_state_dict(checkpoint[&quot;state_dict&quot;])
+model.eval()</code></pre>
+<p>Class order in the checkpoint and in the ONNX softmax is cardboard, glass, metal, paper, plastic, trash.</p>
+<h2>Limitations</h2>
+<ul><li>TrashNet objects sit on a clean posterboard. A photo of a bin, a street, or several overlapping items is outside that distribution, so the demo can be confidently wrong.</li><li>Glass, plastic, and metal are often transparent or reflective, and the confusion matrix is where those mistakes show up.</li><li>The trash class has 137 images in the whole dataset and 20 in the test split, so its F1 is a noisy estimate.</li><li>Inverse-frequency weights push the model to notice trash, but they do not create new photographs.</li><li>Nothing in the label set covers batteries, chemicals, or sharp medical waste. The page should not be used as a safety instruction.</li></ul>
+<h2>Reproducibility</h2>
+<pre><code>python -m venv .venv
+.venv\Scripts\python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python download_dataset.py
+.venv\Scripts\python train.py
+.venv\Scripts\python build_docs.py
+node prepare_site.js</code></pre>
+<p>CPU training also finishes, because the dataset is small. The CUDA 12.8 wheel is what this machine used for an RTX 5070 (Blackwell, <code>sm_120</code>). <code>train.py</code> falls back to CPU if a CUDA kernel cannot run.</p>
+<h2>References</h2>
+<p>1. Gary Thung and Mindy Yang. TrashNet. Stanford CS 229, 2016. https://github.com/garythung/trashnet</p>
+<p>2. Mark Sandler, Andrew Howard, Menglong Zhu, Andrey Zhmoginov, and Liang-Chieh Chen. MobileNetV2: Inverted Residuals and Linear Bottlenecks. CVPR, 2018.</p>
+<p>3. Torchvision MobileNetV2 and ImageNet-1K weights, <code>MobileNet_V2_Weights.IMAGENET1K_V1</code>.</p>
+  </main>
+</body>
+</html>

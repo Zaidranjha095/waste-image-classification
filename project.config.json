@@ -1,0 +1,13 @@
+{
+  "title": "Waste Image Classification using Transfer Learning",
+  "studentName": "Student Name",
+  "rollNumber": "Roll Number",
+  "course": "Deep Learning",
+  "githubUrl": "",
+  "vercelUrl": "",
+  "youtubeUrl": "",
+  "linkedinUrl": "",
+  "datasetName": "TrashNet",
+  "datasetUrl": "https://github.com/garythung/trashnet",
+  "datasetCitation": "Gary Thung and Mindy Yang. TrashNet. Stanford CS 229, 2016. https://github.com/garythung/trashnet"
+}

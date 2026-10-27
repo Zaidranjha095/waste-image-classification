@@ -1,0 +1,22 @@
+{
+  "task": "image-classification",
+  "framework": "pytorch",
+  "architecture": "torchvision.models.mobilenet_v2",
+  "weights": "weights/model.pth",
+  "onnx": "weights/model.onnx",
+  "config": "weights/config.json",
+  "classes": "weights/class_names.json",
+  "metrics": "outputs/metrics.json",
+  "predict": "python predict.py --image <path>",
+  "build_model": "model.py:build_model",
+  "input_size": 224,
+  "class_order": [
+    "cardboard",
+    "glass",
+    "metal",
+    "paper",
+    "plastic",
+    "trash"
+  ],
+  "output": "logits"
+}

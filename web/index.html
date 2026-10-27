@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="index, follow">
+  <meta name="description" content="Deep learning semester project: MobileNetV2 waste image classification trained on TrashNet, with downloadable weights and a browser demo.">
+  <title>Waste Image Classification</title>
+  <link rel="icon" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,680&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html">Waste Image Classification</a>
+    <nav>
+      <a href="#overview">Overview</a>
+      <a href="#dataset">Dataset</a>
+      <a href="#demo">Demo</a>
+      <a href="#results">Results</a>
+      <a href="#files">Files</a>
+      <a href="report.html">Report</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <section class="hero" id="overview">
+      <p class="eyebrow">Deep Learning semester project</p>
+      <h1>Sort six kinds of waste from a single photo.</h1>
+      <p class="lede">A MobileNetV2 classifier fine-tuned on TrashNet predicts cardboard, glass, metal, paper, plastic, or trash. The trained weights are public files, and this page runs the same network in the browser.</p>
+      <!--STUDENT:START-->
+<p class="byline">Student Name · Roll Number · Deep Learning</p>
+<!--STUDENT:END-->
+    </section>
+
+    <section class="grid-2">
+      <article class="panel">
+        <h2>Problem</h2>
+        <p>Material recovery depends on separating paper, plastic, glass, metal, and cardboard before they reach a landfill. Manual sorting is slow, and a single photo is enough information for a first automated guess.</p>
+        <p>This project trains a compact convolutional network for that six-way decision, saves the weights in a form an evaluator can download, and demonstrates predictions without a GPU server.</p>
+      </article>
+      <article class="panel">
+        <h2>Method</h2>
+        <ul>
+          <li>Dataset: <a href="https://github.com/garythung/trashnet">TrashNet</a> (Thung and Yang, Stanford CS 229).</li>
+          <li>Architecture: torchvision MobileNetV2, ImageNet initialization, 6-class linear head.</li>
+          <li>Input: shorter side resized to 256, center crop 224, ImageNet mean and standard deviation.</li>
+          <li>Checkpoint: <a href="downloads/model.pth">weights/model.pth</a> with key <code>state_dict</code>.</li>
+          <li>Reference inference: <code>python predict.py --image &lt;path&gt;</code>.</li>
+        </ul>
+      </article>
+    </section>
+
+    <section id="dataset">
+      <h2>Dataset and code</h2>
+      <div class="grid-2">
+        <div>
+          <p>TrashNet contains photographs of a single object on a plain posterboard. The resized release used here has 512×384 JPEG images. The split is stratified, 70% train / 15% validation / 15% test, seed 42. The full image set is downloaded by <code>download_dataset.py</code> and is not stored in Git. One test image per class is kept in <code>samples/</code>.</p>
+          <!--DATASET:START-->
+<ul class="counts">
+<li><span>cardboard</span><strong>403</strong></li>
+<li><span>glass</span><strong>501</strong></li>
+<li><span>metal</span><strong>410</strong></li>
+<li><span>paper</span><strong>594</strong></li>
+<li><span>plastic</span><strong>482</strong></li>
+<li><span>trash</span><strong>137</strong></li>
+</ul>
+<p>2527 images total. Split 1768 train / 379 validation / 380 test.</p>
+<!--DATASET:END-->
+          <p>Citation: Gary Thung and Mindy Yang. TrashNet. Stanford CS 229, 2016. <a href="https://github.com/garythung/trashnet">github.com/garythung/trashnet</a>.</p>
+        </div>
+        <div class="panel">
+          <h3>Repository layout</h3>
+          <pre>model.py
+predict.py
+train.py
+download_dataset.py
+model_manifest.json
+weights/model.pth
+weights/model.onnx
+weights/config.json
+weights/class_names.json
+outputs/metrics.json
+samples/
+report/PROJECT_REPORT.md
+presentation/presentation.pptx
+web/</pre>
+        </div>
+      </div>
+      <div class="samples" id="sample-row">
+        <button class="sample" type="button" data-src="samples/cardboard.jpg"><img src="samples/cardboard.jpg" alt="cardboard sample"><span>cardboard</span></button>
+        <button class="sample" type="button" data-src="samples/glass.jpg"><img src="samples/glass.jpg" alt="glass sample"><span>glass</span></button>
+        <button class="sample" type="button" data-src="samples/metal.jpg"><img src="samples/metal.jpg" alt="metal sample"><span>metal</span></button>
+        <button class="sample" type="button" data-src="samples/paper.jpg"><img src="samples/paper.jpg" alt="paper sample"><span>paper</span></button>
+        <button class="sample" type="button" data-src="samples/plastic.jpg"><img src="samples/plastic.jpg" alt="plastic sample"><span>plastic</span></button>
+        <button class="sample" type="button" data-src="samples/trash.jpg"><img src="samples/trash.jpg" alt="trash sample"><span>trash</span></button>
+      </div>
+    </section>
+
+    <section id="demo">
+      <h2>Model demonstration</h2>
+      <div class="demo-layout">
+        <div class="panel">
+          <label class="dropzone" id="dropzone">
+            <input id="file-input" type="file" accept="image/*">
+            <span>Drop a photo here, or click to choose one. You can also press a sample above.</span>
+          </label>
+          <img id="preview" alt="Selected waste photo" hidden>
+        </div>
+        <div class="panel">
+          <p id="status">Loading the ONNX model…</p>
+          <div id="result" hidden>
+            <p id="pred-class"></p>
+            <p id="pred-conf"></p>
+            <div id="bars"></div>
+          </div>
+        </div>
+      </div>
+      <p class="fine">Browser inference uses <code>downloads/model.onnx</code>, exported from the same checkpoint as <code>weights/model.pth</code>. Logits are softmaxed in the page. Preprocessing follows torchvision: shorter side 256, center crop 224, ImageNet normalization.</p>
+    </section>
+
+    <section id="results">
+      <h2>Results</h2>
+      <!--RESULTS:START-->
+<div class="stats">
+  <article class="stat"><span>Test accuracy</span><strong>88.68%</strong></article>
+  <article class="stat"><span>Macro F1</span><strong>88.83%</strong></article>
+  <article class="stat"><span>Best validation accuracy</span><strong>88.39%</strong></article>
+  <article class="stat"><span>Epochs run</span><strong>17</strong></article>
+</div>
+<p class="fine">Trained on NVIDIA GeForce RTX 5070. The network has 2,231,558 parameters. Weighted F1 is 88.75%. Largest test confusions: 12 glass predicted as plastic; 6 paper predicted as metal; 3 cardboard predicted as paper.</p>
+<table>
+  <thead><tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1</th><th>Support</th></tr></thead>
+  <tbody><tr><td>cardboard</td><td>96.49%</td><td>91.67%</td><td>94.02%</td><td>60</td></tr><tr><td>glass</td><td>93.85%</td><td>80.26%</td><td>86.52%</td><td>76</td></tr><tr><td>metal</td><td>80.82%</td><td>95.16%</td><td>87.41%</td><td>62</td></tr><tr><td>paper</td><td>92.94%</td><td>88.76%</td><td>90.80%</td><td>89</td></tr><tr><td>plastic</td><td>79.76%</td><td>91.78%</td><td>85.35%</td><td>73</td></tr><tr><td>trash</td><td>100.00%</td><td>80.00%</td><td>88.89%</td><td>20</td></tr></tbody>
+</table>
+<!--RESULTS:END-->
+      <div class="figures">
+        <figure class="figure">
+          <img src="images/training_curves.png" alt="Training and validation loss and accuracy across epochs">
+          <figcaption>Training and validation curves. The saved checkpoint is the epoch with the highest validation accuracy.</figcaption>
+        </figure>
+        <figure class="figure">
+          <img src="images/confusion_matrix.png" alt="Confusion matrix on the held-out test set">
+          <figcaption>Confusion matrix on the held-out test set. Rows are the true class.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="files">
+      <h2>Downloads for evaluation</h2>
+      <p>These links point at the files deployed with this site. The same weights live in the GitHub repository at the paths below.</p>
+      <ul class="file-list">
+        <li><a href="downloads/model.pth">model.pth</a><span>weights/model.pth</span></li>
+        <li><a href="downloads/model.onnx">model.onnx</a><span>weights/model.onnx</span></li>
+        <li><a href="downloads/config.json">config.json</a><span>weights/config.json</span></li>
+        <li><a href="downloads/class_names.json">class_names.json</a><span>weights/class_names.json</span></li>
+        <li><a href="downloads/model_manifest.json">model_manifest.json</a><span>model_manifest.json</span></li>
+        <li><a href="downloads/metrics.json">metrics.json</a><span>outputs/metrics.json</span></li>
+        <li><a href="report.html">Project report</a><span>report/PROJECT_REPORT.md</span></li>
+        <li><a href="downloads/presentation.pptx">Presentation</a><span>presentation/presentation.pptx</span></li>
+        <li><a href="https://github.com/garythung/trashnet">TrashNet dataset</a><span>secondary dataset</span></li>
+      </ul>
+      <h3>Project links</h3>
+      <!--LINKS:START-->
+<ul class="link-list">
+<li><span class="pending">GitHub repository will be added before final submission.</span></li>
+<li><span class="pending">YouTube walkthrough will be added before final submission.</span></li>
+<li><span class="pending">LinkedIn post will be added before final submission.</span></li>
+<li><span class="pending">Vercel deployment will be added before final submission.</span></li>
+</ul>
+<!--LINKS:END-->
+      <h3>Load the PyTorch checkpoint</h3>
+      <pre id="load-recipe">import torch
+from model import build_model
+
+checkpoint = torch.load("weights/model.pth", map_location="cpu", weights_only=False)
+model = build_model(num_classes=len(checkpoint["classes"]), pretrained=False)
+model.load_state_dict(checkpoint["state_dict"])
+model.eval()
+
+# Or, from a shell:
+# python predict.py --image samples/paper.jpg</pre>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Educational project. The photos in TrashNet use a plain background, and the model is not a system for handling hazardous waste.</p>
+  </footer>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Waste Image Classification",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Web",
+    "description": "MobileNetV2 waste classifier trained on TrashNet.",
+    "downloadUrl": [
+      "downloads/model.pth",
+      "downloads/model.onnx",
+      "downloads/config.json"
+    ]
+  }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
